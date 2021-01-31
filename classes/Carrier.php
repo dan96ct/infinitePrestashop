@@ -1576,7 +1576,6 @@ class CarrierCore extends ObjectModel
 
         $cart_quantity = 0;
         $cart_weight = 0;
-
         foreach ($cart->getProducts(false, false) as $cart_product) {
             if ($cart_product['id_product'] == $product->id) {
                 $cart_quantity += $cart_product['cart_quantity'];
@@ -1611,7 +1610,6 @@ class CarrierCore extends ObjectModel
                 }
             }
         }
-
         return $carrier_list;
     }
 

@@ -638,8 +638,12 @@ class CartCore extends ObjectModel
         // Build query
         $sql = new DbQuery();
 
+        //CUSTOM
+          $custom_fields = 'cp.custom_price AS custom_price';
+        //FINAL CUSTOM
+
         // Build SELECT
-        $sql->select('cp.`id_product_attribute`, cp.`id_product`, cp.`quantity` AS cart_quantity, cp.id_shop, cp.`id_customization`, pl.`name`, p.`is_virtual`,
+        $sql->select($custom_fields . ' ,cp.`id_product_attribute`, cp.`id_product`, cp.`quantity` AS cart_quantity, cp.id_shop, cp.`id_customization`, pl.`name`, p.`is_virtual`,
                         pl.`description_short`, pl.`available_now`, pl.`available_later`, product_shop.`id_category_default`, p.`id_supplier`,
                         p.`id_manufacturer`, m.`name` AS manufacturer_name, product_shop.`on_sale`, product_shop.`ecotax`, product_shop.`additional_shipping_cost`,
                         product_shop.`available_for_order`, product_shop.`show_price`, product_shop.`price`, product_shop.`active`, product_shop.`unity`, product_shop.`unit_price_ratio`,
@@ -736,7 +740,6 @@ class CartCore extends ObjectModel
                 } else {
                     $reduction_type_row = array('reduction_type' => 0);
                 }
-
                 $result[$key] = array_merge($row, $reduction_type_row);
             }
         }
@@ -792,6 +795,8 @@ class CartCore extends ObjectModel
                 $row['reduction_without_tax'] = $additionalRow['reduction_without_tax'];
                 $row['price_without_reduction'] = $additionalRow['price_without_reduction'];
                 $row['specific_prices'] = $additionalRow['specific_prices'];
+
+
                 unset($additionalRow);
 
                 $givenAwayQuantity = 0;
@@ -802,6 +807,13 @@ class CartCore extends ObjectModel
 
                 if (!$row['is_gift'] || (int) $row['cart_quantity'] === $givenAwayQuantity) {
                     $row = $this->applyProductCalculations($row, $cart_shop_context);
+
+                    //CUSTOM
+                    if($row['custom_price'] > 0){
+                      $row['total_wt'] = $row['custom_price'] * $row['quantity'];
+                      $row['price_wt'] = $row['custom_price'];
+                    }
+
                 } else {
                     // Separate products given away from those manually added to cart
                     $this->_products[] = $this->applyProductCalculations($row, $cart_shop_context, $givenAwayQuantity);
@@ -812,13 +824,11 @@ class CartCore extends ObjectModel
                         $row['cart_quantity'] - $givenAwayQuantity
                     );
                 }
-
                 $this->_products[] = $row;
             }
         } else {
             $this->_products = $result;
         }
-
         return $this->_products;
     }
 
@@ -1292,7 +1302,8 @@ class CartCore extends ObjectModel
         $id_address_delivery = 0,
         Shop $shop = null,
         $auto_add_cart_rule = true,
-        $skipAvailabilityCheckOutOfStock = false
+        $skipAvailabilityCheckOutOfStock = false,
+        $custom_fields = array()
     ) {
         if (!$shop) {
             $shop = Context::getContext()->shop;
@@ -1419,9 +1430,7 @@ class CartCore extends ObjectModel
                     WHERE `id_product` = ' . (int) $id_product .
                 ' AND `id_customization` = ' . (int) $id_customization .
                 (!empty($id_product_attribute) ? ' AND `id_product_attribute` = ' . (int) $id_product_attribute : '') . '
-                    AND `id_cart` = ' . (int) $this->id . (Configuration::get('PS_ALLOW_MULTISHIPPING') && $this->isMultiAddressDelivery() ? ' AND `id_address_delivery` = ' . (int) $id_address_delivery : '') . '
-                    LIMIT 1'
-            );
+                    AND `id_cart` = ' . (int) $this->id . (Configuration::get('PS_ALLOW_MULTISHIPPING') && $this->isMultiAddressDelivery() ? ' AND `id_address_delivery` = ' . (int) $id_address_delivery : '') . ' LIMIT 1');
         } elseif ($operator == 'up') {
             /* Add product to the cart */
 
@@ -1456,6 +1465,7 @@ class CartCore extends ObjectModel
                 'quantity' => (int) $quantity,
                 'date_add' => date('Y-m-d H:i:s'),
                 'id_customization' => (int) $id_customization,
+                'custom_price' => $custom_fields['custom_price'],
             ));
 
             if (!$result_add) {
@@ -1956,6 +1966,7 @@ class CartCore extends ObjectModel
         }
 
         $calculator = $this->newCalculator($products, $cartRules, $id_carrier);
+
         $computePrecision = $this->configuration->get('_PS_PRICE_COMPUTE_PRECISION_');
         switch ($type) {
             case Cart::ONLY_SHIPPING:
@@ -1999,13 +2010,32 @@ class CartCore extends ObjectModel
 
         $value = $withTaxes ? $amount->getTaxIncluded() : $amount->getTaxExcluded();
 
+        $customValue = $this->customCalculator($products);
+        if($customValue > 0 ){
+          $value = $customValue;
+        }
+
         // ROUND AND RETURN
 
         $compute_precision = $this->configuration->get('_PS_PRICE_COMPUTE_PRECISION_');
 
         return Tools::ps_round($value, $compute_precision);
     }
-
+    //CUSTOM
+    /**
+     *
+     * Calcula el precio total con el array de los productos
+     * @param array $products list of products to calculate on
+     *
+     * @return double
+     */
+    public function customCalculator($products){
+      $customValue = 0;
+      foreach ($products as $key => $product) {
+        $customValue = $product['total_wt'] + $customValue;
+      }
+      return $customValue;
+    }
     /**
      * get the populated cart calculator.
      *

@@ -34,6 +34,9 @@ class CartControllerCore extends FrontController
     protected $id_address_delivery;
     protected $customization_id;
     protected $qty;
+
+    // CUSTOM
+    protected $custom_fields;
     /**
      * To specify if you are in the preview mode or not.
      *
@@ -68,6 +71,16 @@ class CartControllerCore extends FrontController
 
         // Send noindex to avoid ghost carts by bots
         header('X-Robots-Tag: noindex, nofollow', true);
+
+        //CUSTOM
+        $this->custom_fields = array();
+
+        $custom_price = (float) Tools::getValue('custom_price');
+        $qty = (float) Tools::getValue('qty', 1);
+        $final_price = $custom_price * $qty;
+        $this->custom_fields['custom_price'] = $custom_price;
+
+        //FINAL CUSTOM
 
         // Get page main parameters
         $this->id_product = (int) Tools::getValue('id_product', null);
@@ -358,7 +371,6 @@ class CartControllerCore extends FrontController
     {
         $mode = (Tools::getIsset('update') && $this->id_product) ? 'update' : 'add';
         $ErrorKey = ('update' === $mode) ? 'updateOperationError' : 'errors';
-
         if (Tools::getIsset('group')) {
             $this->id_product_attribute = (int) Product::getIdProductAttributeByIdAttributes(
                 $this->id_product,
@@ -499,7 +511,8 @@ class CartControllerCore extends FrontController
                     $this->id_address_delivery,
                     null,
                     true,
-                    true
+                    true,
+                    $this->custom_fields
                 );
                 if ($update_quantity < 0) {
                     // If product has attribute, minimal quantity is set with minimal quantity of attribute

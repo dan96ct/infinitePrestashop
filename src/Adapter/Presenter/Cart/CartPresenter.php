@@ -328,7 +328,7 @@ class CartPresenter implements PresenterInterface
         $total_including_tax = $cart->getOrderTotal(true);
         $total_discount = $cart->getDiscountSubtotalWithoutGifts($this->includeTaxes());
         $totalCartAmount = $cart->getOrderTotal($this->includeTaxes(), Cart::ONLY_PRODUCTS);
-
+        
         $subtotals['products'] = array(
             'type' => 'products',
             'label' => $this->translator->trans('Subtotal', array(), 'Shop.Theme.Checkout'),
